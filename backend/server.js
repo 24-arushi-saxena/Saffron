@@ -19,7 +19,8 @@ app.use(express.json());
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://saffron-frontend.onrender.com"
+    "http://localhost:3000", // local dev server
+    "https://saffron-backend-oln5.onrender.com"
   ],
   credentials: true,
 }));
