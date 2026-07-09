@@ -1,0 +1,7 @@
+/* Saffron Color Palette and Design System Tokens */
+:root {
+  --color-gold-glow: rgba(212, 171, 58, 0.15);
+  --color-surface-glass: rgba(15, 15, 15, 0.55);
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Outfit', sans-serif;
+}

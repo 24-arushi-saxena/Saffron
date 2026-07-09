@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-gold: #d4ab3a;
+  --color-dark-bg: #070707;
+}
+
+.day-theme {
+  --color-dark-bg: #fdfbf7;
+}
+
+body {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--color-dark-bg);
+  color: #ffffff;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+.day-theme body {
+  color: #1c1917;
+}
+
+/* Custom Scrollbar for Premium Luxury Feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+
+.day-theme ::-webkit-scrollbar-track {
+  background: #f5eebd;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+.day-theme ::-webkit-scrollbar-thumb {
+  background: #dcd6cd;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4ab3a;
+}
+

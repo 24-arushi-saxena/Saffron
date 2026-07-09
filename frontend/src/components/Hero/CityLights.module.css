@@ -1,0 +1,23 @@
+.light {
+  position: absolute;
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 3;
+  will-change: opacity, transform;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
