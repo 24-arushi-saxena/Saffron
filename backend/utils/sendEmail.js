@@ -1,4 +1,9 @@
 const nodemailer = require("nodemailer");
+const dotenv = require("dotenv");
+const path = require("path");
+
+// Load environment variables from backend/.env if not already loaded
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const transporter = nodemailer.createTransport({
   service: "gmail",

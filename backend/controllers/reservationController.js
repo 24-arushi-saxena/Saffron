@@ -51,17 +51,13 @@ const createReservation = async (req, res) => {
       }
     }
 
-    // send confirmation email (wrapped in try-catch so it doesn't block reservation if credentials are dummy)
-    let emailSent = false;
-    try {
-      if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
-        await sendConfirmationEmail(reservation);
-        emailSent = true;
-      } else {
-        console.log("Email sending skipped: Placeholder EMAIL_USER detected in env.");
-      }
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError.message);
+    // send confirmation email asynchronously in the background so it doesn't block client response
+    if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
+      sendConfirmationEmail(reservation)
+        .then(() => console.log("Confirmation email sent successfully in the background."))
+        .catch((emailError) => console.error("Background email sending failed:", emailError.message));
+    } else {
+      console.log("Email sending skipped: Placeholder EMAIL_USER detected in env.");
     }
 
     // Populate eventId if present so the receipt can display the event details
@@ -130,9 +126,53 @@ const cancelReservation = async (req, res) => {
   }
 };
 
+const testEmail = async (req, res) => {
+  try {
+    const dummyReservation = {
+      name: "Saffron Test Guest",
+      email: req.query.email || process.env.EMAIL_USER || "saffron04070@gmail.com",
+      date: new Date(),
+      time: "8:00 PM",
+      guests: 2,
+      occasion: "Testing Connection",
+      confirmationCode: "TEST-12345",
+      preOrderedDishes: []
+    };
+
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing environment variables. Make sure EMAIL_USER and EMAIL_PASS are set on Render.",
+        envUserSet: !!process.env.EMAIL_USER,
+        envPassSet: !!process.env.EMAIL_PASS
+      });
+    }
+
+    await sendConfirmationEmail(dummyReservation);
+
+    res.json({
+      success: true,
+      message: "Test email sent successfully!",
+      recipient: dummyReservation.email,
+      sender: process.env.EMAIL_USER
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Email sending failed.",
+      error: error.message,
+      env: {
+        EMAIL_USER: process.env.EMAIL_USER,
+        hasPass: !!process.env.EMAIL_PASS
+      }
+    });
+  }
+};
+
 module.exports = {
   createReservation,
   checkSlotAvailability,
   getAllReservations,
   cancelReservation,
+  testEmail,
 };

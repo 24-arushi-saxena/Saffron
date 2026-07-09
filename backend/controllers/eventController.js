@@ -72,36 +72,24 @@ const submitInquiry = async (req, res) => {
   try {
     const inquiry = await Inquiry.create(req.body);
 
-    // Send email to owner
-    let ownerEmailSent = false;
-    try {
-      if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
-        await sendInquiryNotification(inquiry);
-        ownerEmailSent = true;
-      }
-    } catch (err) {
-      console.error("Owner inquiry notification failed:", err.message);
+    // Send email to owner in background
+    if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
+      sendInquiryNotification(inquiry)
+        .then(() => console.log("Owner inquiry email sent in background."))
+        .catch((err) => console.error("Owner inquiry notification failed:", err.message));
     }
 
-    // Send acknowledgement to guest
-    let guestEmailSent = false;
-    try {
-      if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
-        await sendInquiryAcknowledgement(inquiry);
-        guestEmailSent = true;
-      }
-    } catch (err) {
-      console.error("Guest inquiry acknowledgement failed:", err.message);
+    // Send acknowledgement to guest in background
+    if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "yourgmail@gmail.com") {
+      sendInquiryAcknowledgement(inquiry)
+        .then(() => console.log("Guest acknowledgement email sent in background."))
+        .catch((err) => console.error("Guest inquiry acknowledgement failed:", err.message));
     }
 
     res.status(201).json({
       success: true,
       message: "Inquiry submitted successfully.",
       data: inquiry,
-      emails: {
-        ownerNotification: ownerEmailSent,
-        guestAcknowledgement: guestEmailSent,
-      },
     });
   } catch (error) {
     res.status(500).json({
