@@ -1,22 +1,46 @@
-const nodemailer = require("nodemailer");
 const dotenv = require("dotenv");
 const path = require("path");
 
 // Load environment variables from backend/.env if not already loaded
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true for port 465, false for port 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+// Core Brevo email sender function (communicates over HTTPS port 443)
+const sendMailViaBrevo = async ({ to, subject, html }) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL || "saffron04070@gmail.com";
+
+  if (!apiKey) {
+    console.warn("Brevo API key is not configured. Skipping email send.");
+    return;
+  }
+
+  const payload = {
+    sender: { email: senderEmail, name: "Saffron Restaurant" },
+    to: [{ email: to }],
+    subject: subject,
+    htmlContent: html,
+  };
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "api-key": apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const message = data.message || `Brevo API error: ${response.status}`;
+    throw new Error(message);
+  }
+
+  const data = await response.json().catch(() => ({}));
+  console.log(`[Brevo Email Sent] MessageId: ${data.messageId || ""}`);
+  return data;
+};
 
 const sendConfirmationEmail = async (reservation) => {
   const {
@@ -31,42 +55,72 @@ const sendConfirmationEmail = async (reservation) => {
     day:     "numeric",
   });
 
-  const mailOptions = {
-    from:    `"Saffron Restaurant" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: `Your table at Saffron is confirmed`,
-    html: `
+  const htmlContent = `
+    <div style="
+      font-family: Georgia, serif;
+      max-width: 520px;
+      margin: 0 auto;
+      background: #FAF7F0;
+      padding: 40px;
+      border: 1px solid #E8DFC0;
+    ">
+      <div style="text-align:center; margin-bottom: 32px;">
+        <h1 style="
+          font-size: 28px;
+          font-weight: 400;
+          color: #C8A951;
+          letter-spacing: 0.2em;
+          margin: 0;
+        ">SAFFRON</h1>
+        <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
+          PURE VEGETARIAN | INDIAN & WESTERN
+        </p>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
+
+      <p style="color: #3D2B1A; font-size: 18px; margin-bottom: 8px;">
+        Dear ${name},
+      </p>
+      <p style="color: #6B5240; font-size: 15px; line-height: 1.7;">
+        Your reservation at Saffron is confirmed.
+        We look forward to welcoming you.
+      </p>
+
       <div style="
-        font-family: Georgia, serif;
-        max-width: 520px;
-        margin: 0 auto;
-        background: #FAF7F0;
-        padding: 40px;
+        background: #FFF8EC;
         border: 1px solid #E8DFC0;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 28px 0;
       ">
-        <div style="text-align:center; margin-bottom: 32px;">
-          <h1 style="
-            font-size: 28px;
-            font-weight: 400;
-            color: #C8A951;
-            letter-spacing: 0.2em;
-            margin: 0;
-          ">SAFFRON</h1>
-          <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
-            PURE VEGETARIAN | INDIAN & WESTERN
-          </p>
-        </div>
+        <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
+          <tr>
+            <td style="padding: 8px 0; color: #8B6A40;">Confirmation</td>
+            <td style="padding: 8px 0; font-weight: bold; color: #C8A951;">
+              #${confirmationCode}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8B6A40;">Date</td>
+            <td style="padding: 8px 0;">${formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8B6A40;">Time</td>
+            <td style="padding: 8px 0;">${time}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8B6A40;">Guests</td>
+            <td style="padding: 8px 0;">${guests}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8B6A40;">Occasion</td>
+            <td style="padding: 8px 0;">${occasion}</td>
+          </tr>
+        </table>
+      </div>
 
-        <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
-
-        <p style="color: #3D2B1A; font-size: 18px; margin-bottom: 8px;">
-          Dear ${name},
-        </p>
-        <p style="color: #6B5240; font-size: 15px; line-height: 1.7;">
-          Your reservation at Saffron is confirmed.
-          We look forward to welcoming you.
-        </p>
-
+      ${reservation.preOrderedDishes && reservation.preOrderedDishes.length > 0 ? `
         <div style="
           background: #FFF8EC;
           border: 1px solid #E8DFC0;
@@ -74,88 +128,57 @@ const sendConfirmationEmail = async (reservation) => {
           padding: 24px;
           margin: 28px 0;
         ">
-          <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
-            <tr>
-              <td style="padding: 8px 0; color: #8B6A40;">Confirmation</td>
-              <td style="padding: 8px 0; font-weight: bold; color: #C8A951;">
-                #${confirmationCode}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #8B6A40;">Date</td>
-              <td style="padding: 8px 0;">${formattedDate}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #8B6A40;">Time</td>
-              <td style="padding: 8px 0;">${time}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #8B6A40;">Guests</td>
-              <td style="padding: 8px 0;">${guests}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #8B6A40;">Occasion</td>
-              <td style="padding: 8px 0;">${occasion}</td>
-            </tr>
-          </table>
-        </div>
-
-        ${reservation.preOrderedDishes && reservation.preOrderedDishes.length > 0 ? `
-          <div style="
-            background: #FFF8EC;
-            border: 1px solid #E8DFC0;
-            border-radius: 8px;
-            padding: 24px;
-            margin: 28px 0;
-          ">
-            <h3 style="color: #C8A951; font-size: 15px; margin: 0 0 12px; font-weight: 500;">
-              Pre-ordered Dishes
-            </h3>
-            <table style="width: 100%; font-size: 14px; color: #3D2B1A; border-collapse: collapse;">
-              ${reservation.preOrderedDishes.map(d => `
-                <tr>
-                  <td style="padding: 6px 0; border-bottom: 1px dashed #E8DFC0;">
-                    ${d.name} <strong style="color: #C8A951;">x ${d.quantity}</strong>
-                  </td>
-                  <td style="padding: 6px 0; text-align: right; border-bottom: 1px dashed #E8DFC0;">
-                    Rs. ${d.price * d.quantity}
-                  </td>
-                </tr>
-              `).join('')}
+          <h3 style="color: #C8A951; font-size: 15px; margin: 0 0 12px; font-weight: 500;">
+            Pre-ordered Dishes
+          </h3>
+          <table style="width: 100%; font-size: 14px; color: #3D2B1A; border-collapse: collapse;">
+            ${reservation.preOrderedDishes.map(d => `
               <tr>
-                <td style="padding: 12px 0 0; font-weight: bold; color: #8B6A40;">Pre-order Total</td>
-                <td style="padding: 12px 0 0; text-align: right; font-weight: bold; color: #C8A951;">
-                  Rs. ${reservation.preOrderedDishes.reduce((sum, item) => sum + (item.price * item.quantity), 0)}
+                <td style="padding: 6px 0; border-bottom: 1px dashed #E8DFC0;">
+                  ${d.name} <strong style="color: #C8A951;">x ${d.quantity}</strong>
+                </td>
+                <td style="padding: 6px 0; text-align: right; border-bottom: 1px dashed #E8DFC0;">
+                  Rs. ${d.price * d.quantity}
                 </td>
               </tr>
-            </table>
-            <p style="font-size: 11px; color: #8B6A40; margin: 8px 0 0; font-style: italic;">
-              * Payable at the restaurant
-            </p>
-          </div>
-        ` : ""}
-
-        <p style="color: #6B5240; font-size: 14px; line-height: 1.7;">
-          Please arrive 5 minutes before your booking time.
-          We hold your table for 15 minutes past the reservation time.
-        </p>
-
-        <p style="color: #6B5240; font-size: 14px; line-height: 1.7; margin-top: 16px;">
-          To cancel or modify your reservation please reply to this
-          email or call us at <strong>+91 98765 43210</strong>.
-        </p>
-
-        <hr style="border:none; border-top:1px solid #E8DFC0; margin: 32px 0;" />
-
-        <div style="text-align: center; color: #8B6A40; font-size: 12px;">
-          <p>12 Heritage Lane, Lucknow, Uttar Pradesh - 226001</p>
-          <p style="margin-top: 4px;">hello@saffronrestaurant.com</p>
+            `).join('')}
+            <tr>
+              <td style="padding: 12px 0 0; font-weight: bold; color: #8B6A40;">Pre-order Total</td>
+              <td style="padding: 12px 0 0; text-align: right; font-weight: bold; color: #C8A951;">
+                Rs. ${reservation.preOrderedDishes.reduce((sum, item) => sum + (item.price * item.quantity), 0)}
+              </td>
+            </tr>
+          </table>
+          <p style="font-size: 11px; color: #8B6A40; margin: 8px 0 0; font-style: italic;">
+            * Payable at the restaurant
+          </p>
         </div>
-      </div>
-    `,
-  };
+      ` : ""}
 
-  await transporter.sendMail(mailOptions);
+      <p style="color: #6B5240; font-size: 14px; line-height: 1.7;">
+        Please arrive 5 minutes before your booking time.
+        We hold your table for 15 minutes past the reservation time.
+      </p>
+
+      <p style="color: #6B5240; font-size: 14px; line-height: 1.7; margin-top: 16px;">
+        To cancel or modify your reservation please reply to this
+        email or call us at <strong>+91 98765 43210</strong>.
+      </p>
+
+      <hr style="border:none; border-top:1px solid #E8DFC0; margin: 32px 0;" />
+
+      <div style="text-align: center; color: #8B6A40; font-size: 12px;">
+        <p>12 Heritage Lane, Lucknow, Uttar Pradesh - 226001</p>
+        <p style="margin-top: 4px;">hello@saffronrestaurant.com</p>
+      </div>
+    </div>
+  `;
+
+  await sendMailViaBrevo({
+    to: email,
+    subject: `Your table at Saffron is confirmed`,
+    html: htmlContent,
+  });
 };
 
 const sendInquiryNotification = async (inquiry) => {
@@ -171,87 +194,88 @@ const sendInquiryNotification = async (inquiry) => {
     day:     "numeric",
   });
 
-  const mailOptions = {
-    from:    `"Saffron Inquiry Alert" <${process.env.EMAIL_USER}>`,
-    to:      process.env.EMAIL_USER,
-    subject: `New Private Celebration Inquiry - Saffron`,
-    html: `
-      <div style="
-        font-family: Georgia, serif;
-        max-width: 520px;
-        margin: 0 auto;
-        background: #FAF7F0;
-        padding: 40px;
-        border: 1px solid #E8DFC0;
-      ">
-        <div style="text-align:center; margin-bottom: 32px;">
-          <h1 style="
-            font-size: 28px;
-            font-weight: 400;
-            color: #C8A951;
-            letter-spacing: 0.2em;
-            margin: 0;
-          ">SAFFRON</h1>
-          <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
-            NEW INQUIRY RECEIVED
-          </p>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
-
-        <p style="color: #3D2B1A; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-          A guest has requested a private celebration inquiry:
+  const htmlContent = `
+    <div style="
+      font-family: Georgia, serif;
+      max-width: 520px;
+      margin: 0 auto;
+      background: #FAF7F0;
+      padding: 40px;
+      border: 1px solid #E8DFC0;
+    ">
+      <div style="text-align:center; margin-bottom: 32px;">
+        <h1 style="
+          font-size: 28px;
+          font-weight: 400;
+          color: #C8A951;
+          letter-spacing: 0.2em;
+          margin: 0;
+        ">SAFFRON</h1>
+        <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
+          NEW INQUIRY RECEIVED
         </p>
-
-        <div style="
-          background: #FFF8EC;
-          border: 1px solid #E8DFC0;
-          border-radius: 8px;
-          padding: 24px;
-          margin: 20px 0;
-        ">
-          <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40; width: 40%;">Guest Name</td>
-              <td style="padding: 6px 0; font-weight: bold;">${name}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Email</td>
-              <td style="padding: 6px 0;">${email}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Phone</td>
-              <td style="padding: 6px 0;">${phone}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Occasion</td>
-              <td style="padding: 6px 0; font-weight: bold; color: #C8A951;">${occasion}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Preferred Space</td>
-              <td style="padding: 6px 0;">${space}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Preferred Date</td>
-              <td style="padding: 6px 0;">${formattedDate}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Guests</td>
-              <td style="padding: 6px 0;">${guestCount}</td>
-            </tr>
-            ${message ? `
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40; vertical-align: top;">Message</td>
-              <td style="padding: 6px 0; font-style: italic; color: #6B5240;">"${message}"</td>
-            </tr>
-            ` : ""}
-          </table>
-        </div>
       </div>
-    `,
-  };
 
-  await transporter.sendMail(mailOptions);
+      <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
+
+      <p style="color: #3D2B1A; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+        A guest has requested a private celebration inquiry:
+      </p>
+
+      <div style="
+        background: #FFF8EC;
+        border: 1px solid #E8DFC0;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 20px 0;
+      ">
+        <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40; width: 40%;">Guest Name</td>
+            <td style="padding: 6px 0; font-weight: bold;">${name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Email</td>
+            <td style="padding: 6px 0;">${email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Phone</td>
+            <td style="padding: 6px 0;">${phone}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Occasion</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #C8A951;">${occasion}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Preferred Space</td>
+            <td style="padding: 6px 0;">${space}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Preferred Date</td>
+            <td style="padding: 6px 0;">${formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Guests</td>
+            <td style="padding: 6px 0;">${guestCount}</td>
+          </tr>
+          ${message ? `
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40; vertical-align: top;">Message</td>
+            <td style="padding: 6px 0; font-style: italic; color: #6B5240;">"${message}"</td>
+          </tr>
+          ` : ""}
+        </table>
+      </div>
+    </div>
+  `;
+
+  const senderEmail = process.env.SENDER_EMAIL || "saffron04070@gmail.com";
+
+  await sendMailViaBrevo({
+    to: senderEmail,
+    subject: `New Private Celebration Inquiry - Saffron`,
+    html: htmlContent,
+  });
 };
 
 const sendInquiryAcknowledgement = async (inquiry) => {
@@ -266,87 +290,86 @@ const sendInquiryAcknowledgement = async (inquiry) => {
     day:     "numeric",
   });
 
-  const mailOptions = {
-    from:    `"Saffron Restaurant" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: `We have received your celebration inquiry - Saffron`,
-    html: `
-      <div style="
-        font-family: Georgia, serif;
-        max-width: 520px;
-        margin: 0 auto;
-        background: #FAF7F0;
-        padding: 40px;
-        border: 1px solid #E8DFC0;
-      ">
-        <div style="text-align:center; margin-bottom: 32px;">
-          <h1 style="
-            font-size: 28px;
-            font-weight: 400;
-            color: #C8A951;
-            letter-spacing: 0.2em;
-            margin: 0;
-          ">SAFFRON</h1>
-          <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
-            PRIVATE CELEBRATIONS
-          </p>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
-
-        <p style="color: #3D2B1A; font-size: 18px; margin-bottom: 8px;">
-          Dear ${name},
+  const htmlContent = `
+    <div style="
+      font-family: Georgia, serif;
+      max-width: 520px;
+      margin: 0 auto;
+      background: #FAF7F0;
+      padding: 40px;
+      border: 1px solid #E8DFC0;
+    ">
+      <div style="text-align:center; margin-bottom: 32px;">
+        <h1 style="
+          font-size: 28px;
+          font-weight: 400;
+          color: #C8A951;
+          letter-spacing: 0.2em;
+          margin: 0;
+        ">SAFFRON</h1>
+        <p style="color: #8B6A40; font-size: 13px; letter-spacing: 0.1em;">
+          PRIVATE CELEBRATIONS
         </p>
-        <p style="color: #6B5240; font-size: 15px; line-height: 1.7;">
-          Thank you for reaching out to plan your celebration at Saffron. 
-          We have received your inquiry details and our team will contact you within the next 24 hours to discuss the arrangements.
-        </p>
-
-        <div style="
-          background: #FFF8EC;
-          border: 1px solid #E8DFC0;
-          border-radius: 8px;
-          padding: 24px;
-          margin: 28px 0;
-        ">
-          <h3 style="color: #C8A951; font-size: 14px; margin: 0 0 12px; letter-spacing: 0.05em; font-weight: 600;">
-            INQUIRY SUMMARY
-          </h3>
-          <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Occasion</td>
-              <td style="padding: 6px 0; font-weight: bold; color: #C8A951;">${occasion}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Requested Space</td>
-              <td style="padding: 6px 0;">${space}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Date</td>
-              <td style="padding: 6px 0;">${formattedDate}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #8B6A40;">Guest Count</td>
-              <td style="padding: 6px 0;">${guestCount} guests</td>
-            </tr>
-          </table>
-        </div>
-
-        <p style="color: #6B5240; font-size: 14px; line-height: 1.7;">
-          Should you need to make urgent changes, please contact us directly at <strong>+91 98765 43210</strong>.
-        </p>
-
-        <hr style="border:none; border-top:1px solid #E8DFC0; margin: 32px 0;" />
-
-        <div style="text-align: center; color: #8B6A40; font-size: 12px;">
-          <p>12 Heritage Lane, Lucknow, Uttar Pradesh - 226001</p>
-          <p style="margin-top: 4px;">hello@saffronrestaurant.com</p>
-        </div>
       </div>
-    `,
-  };
 
-  await transporter.sendMail(mailOptions);
+      <hr style="border: none; border-top: 1px solid #E8DFC0; margin-bottom: 32px;" />
+
+      <p style="color: #3D2B1A; font-size: 18px; margin-bottom: 8px;">
+        Dear ${name},
+      </p>
+      <p style="color: #6B5240; font-size: 15px; line-height: 1.7;">
+        Thank you for reaching out to plan your celebration at Saffron. 
+        We have received your inquiry details and our team will contact you within the next 24 hours to discuss the arrangements.
+      </p>
+
+      <div style="
+        background: #FFF8EC;
+        border: 1px solid #E8DFC0;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 28px 0;
+      ">
+        <h3 style="color: #C8A951; font-size: 14px; margin: 0 0 12px; letter-spacing: 0.05em; font-weight: 600;">
+          INQUIRY SUMMARY
+        </h3>
+        <table style="width: 100%; font-size: 14px; color: #3D2B1A;">
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Occasion</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #C8A951;">${occasion}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Requested Space</td>
+            <td style="padding: 6px 0;">${space}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Date</td>
+            <td style="padding: 6px 0;">${formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #8B6A40;">Guest Count</td>
+            <td style="padding: 6px 0;">${guestCount} guests</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color: #6B5240; font-size: 14px; line-height: 1.7;">
+        Should you need to make urgent changes, please contact us directly at <strong>+91 98765 43210</strong>.
+      </p>
+
+      <hr style="border:none; border-top:1px solid #E8DFC0; margin: 32px 0;" />
+
+      <div style="text-align: center; color: #8B6A40; font-size: 12px;">
+        <p>12 Heritage Lane, Lucknow, Uttar Pradesh - 226001</p>
+        <p style="margin-top: 4px;">hello@saffronrestaurant.com</p>
+      </div>
+    </div>
+  `;
+
+  await sendMailViaBrevo({
+    to: email,
+    subject: `We have received your celebration inquiry - Saffron`,
+    html: htmlContent,
+  });
 };
 
 module.exports = {
