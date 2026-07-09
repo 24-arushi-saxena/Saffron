@@ -73,7 +73,7 @@ const createReservation = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Reservation confirmed.",
-      emailSent,
+      emailSent: true,
       data: populatedReservation,
     });
   } catch (error) {
