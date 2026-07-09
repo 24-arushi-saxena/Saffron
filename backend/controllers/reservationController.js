@@ -130,7 +130,7 @@ const testEmail = async (req, res) => {
   try {
     const dummyReservation = {
       name: "Saffron Test Guest",
-      email: req.query.email || process.env.EMAIL_USER || "saffron04070@gmail.com",
+      email: req.query.email || process.env.SENDER_EMAIL || "saffron04070@gmail.com",
       date: new Date(),
       time: "8:00 PM",
       guests: 2,
@@ -139,12 +139,12 @@ const testEmail = async (req, res) => {
       preOrderedDishes: []
     };
 
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    if (!process.env.BREVO_API_KEY) {
       return res.status(400).json({
         success: false,
-        message: "Missing environment variables. Make sure EMAIL_USER and EMAIL_PASS are set on Render.",
-        envUserSet: !!process.env.EMAIL_USER,
-        envPassSet: !!process.env.EMAIL_PASS
+        message: "Missing BREVO_API_KEY environment variable. Make sure BREVO_API_KEY is set on Render.",
+        hasApiKey: !!process.env.BREVO_API_KEY,
+        senderEmail: process.env.SENDER_EMAIL || "Not configured"
       });
     }
 
@@ -152,9 +152,9 @@ const testEmail = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Test email sent successfully!",
+      message: "Test email sent successfully via Brevo HTTP API!",
       recipient: dummyReservation.email,
-      sender: process.env.EMAIL_USER
+      sender: process.env.SENDER_EMAIL || "saffron04070@gmail.com"
     });
   } catch (error) {
     res.status(500).json({
@@ -162,8 +162,8 @@ const testEmail = async (req, res) => {
       message: "Email sending failed.",
       error: error.message,
       env: {
-        EMAIL_USER: process.env.EMAIL_USER,
-        hasPass: !!process.env.EMAIL_PASS
+        SENDER_EMAIL: process.env.SENDER_EMAIL,
+        hasBrevoKey: !!process.env.BREVO_API_KEY
       }
     });
   }
