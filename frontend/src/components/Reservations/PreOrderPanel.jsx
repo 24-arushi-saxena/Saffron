@@ -50,7 +50,8 @@ export default function PreOrderPanel({ isOpen, onClose, onSave, initialSelectio
     if (isOpen) {
       setLoading(true);
       setError(null);
-      fetch("http://localhost:5000/api/menu")
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      fetch(`${baseUrl}/menu`)
         .then((res) => {
           if (!res.ok) throw new Error("Failed to load menu dishes.");
           return res.json();

@@ -93,7 +93,8 @@ export default function Events() {
   });
 
   useEffect(() => {
-    fetch("/api/events")
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    fetch(`${baseUrl}/events`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.data && data.data.length > 0) {
@@ -188,7 +189,8 @@ export default function Events() {
   const handleInquirySubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch("/api/events/inquiry", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const response = await fetch(`${baseUrl}/events/inquiry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

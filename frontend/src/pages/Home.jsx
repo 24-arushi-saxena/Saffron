@@ -27,7 +27,8 @@ export default function Home() {
   const [upcomingEvents, setUpcomingEvents] = useState(DEFAULT_UPCOMING_EVENTS);
 
   useEffect(() => {
-    fetch('/api/events/upcoming')
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    fetch(`${baseUrl}/events/upcoming`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.data && data.data.length > 0) {
