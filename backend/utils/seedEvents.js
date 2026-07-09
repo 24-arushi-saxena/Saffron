@@ -46,6 +46,45 @@ const initialEvents = [
     type: "public",
     isActive: true,
   },
+  {
+    title: "Shahi Biryani Fest",
+    subtitle: "A Celebration of Dum-Pukht Artistry",
+    badge: "Grand Feast",
+    description: "Savor the rich heritage of Awadhi and Hyderabadi biryanis cooked in slow copper handis, accompanied by legendary shahi raitas and rich kulfi desserts.",
+    date: new Date("2026-09-05"),
+    time: "8:00 PM",
+    pricePerGuest: 2800,
+    totalSeats: 50,
+    seatsRemaining: 25,
+    type: "public",
+    isActive: true,
+  },
+  {
+    title: "Chai & Chaat Soiree",
+    subtitle: "Street Food of Benares & Delhi Redefined",
+    badge: "Evening Social",
+    description: "An elevated street food experience featuring artisanal chaats (palak patta, dahi bhalla, raj kachori) accompanied by unlimited customized cutting chai and live acoustic performance.",
+    date: new Date("2026-09-18"),
+    time: "5:30 PM",
+    pricePerGuest: 1800,
+    totalSeats: 60,
+    seatsRemaining: 42,
+    type: "public",
+    isActive: true,
+  },
+  {
+    title: "Royal Dessert Symphony",
+    subtitle: "A Sweet Finale of Indian Patisserie",
+    badge: "Dessert Tasting",
+    description: "An exclusive dessert tasting session curated by our head pastry chef, pairing classical royal Indian sweets with modern international pastry concepts.",
+    date: new Date("2026-10-02"),
+    time: "9:00 PM",
+    pricePerGuest: 2200,
+    totalSeats: 20,
+    seatsRemaining: 10,
+    type: "public",
+    isActive: true,
+  },
 ];
 
 const seedDB = async () => {
@@ -60,7 +99,7 @@ const seedDB = async () => {
 
     // Insert new events
     await Event.insertMany(initialEvents);
-    console.log("Successfully seeded 3 Saffron events!");
+    console.log("Successfully seeded Saffron events!");
 
     mongoose.connection.close();
     console.log("DB connection closed.");
